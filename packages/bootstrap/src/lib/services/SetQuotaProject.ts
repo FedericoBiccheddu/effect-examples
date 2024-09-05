@@ -30,12 +30,20 @@ export class SetQuotaProject extends Context.Tag('SetQuotaProject')<
             catch: () => new SetQuotaProjectError({ message: 'Failed to set quota project' }),
           })
 
+          yield* Effect.log(
+            `[SetQuotaProject] Set quota project to "${projectId}" (previous: "${currentProjectId}")`
+          )
+
           return { id: currentProjectId }
         }),
 
       setPreviousQuotaProject: (project) =>
         Effect.sync(() =>
           execSync(`gcloud auth application-default set-quota-project ${project.id}`)
+        ).pipe(
+          Effect.tap(() =>
+            Effect.log(`[SetQuotaProject] Set quota project back to "${project.id}"`)
+          )
         ),
     }
   })

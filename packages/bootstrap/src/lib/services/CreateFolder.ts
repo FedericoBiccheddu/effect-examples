@@ -7,6 +7,7 @@ export class CreateFolderError extends Data.TaggedError('CreateFolderError')<{
 
 export interface Folder {
   readonly id: string
+  readonly name?: string
 }
 
 export class CreateFolder extends Context.Tag('CreateFolder')<
@@ -37,11 +38,16 @@ export class CreateFolder extends Context.Tag('CreateFolder')<
 
           yield* Effect.log(`[CreateFolder] Created "${folderName}" folder`)
 
-          return { id: JSON.parse(String(output)).name.split('/').pop() }
+          return {
+            id: JSON.parse(String(output)).name.split('/').pop(),
+            name: folderName,
+          }
         }),
 
       deleteFolder: (folder) =>
-        Effect.sync(() => execSync(`gcloud resource-manager folders delete ${folder.id}`)),
+        Effect.sync(() => execSync(`gcloud resource-manager folders delete ${folder.id}`)).pipe(
+          Effect.tap(() => Effect.log(`[CreateFolder] Deleted folder "${folder.name}"`))
+        ),
     }
   })
 }

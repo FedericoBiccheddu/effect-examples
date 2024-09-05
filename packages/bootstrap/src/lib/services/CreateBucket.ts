@@ -58,7 +58,9 @@ export class CreateBucket extends Context.Tag('CreateBucket')<
         }),
 
       deleteBucket: (bucket) =>
-        Effect.sync(() => execSync(`gcloud storage buckets delete ${bucket.uri}`)),
+        Effect.sync(() => execSync(`gcloud storage buckets delete ${bucket.uri}`)).pipe(
+          Effect.tap(() => Effect.log(`[CreateBucket] Deleted bucket "${bucket.uri}"`))
+        ),
     }
   })
 }
