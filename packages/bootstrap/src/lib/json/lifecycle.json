@@ -1,0 +1,12 @@
+{
+  "rule": [
+    {
+      "action": { "type": "Delete" },
+      "condition": { "numNewerVersions": 100, "withState": "ARCHIVED" }
+    },
+    {
+      "action": { "type": "Delete" },
+      "condition": { "daysSinceNoncurrentTime": 100, "withState": "ANY" }
+    }
+  ]
+}

@@ -50,7 +50,7 @@ export class CreateBucket extends Context.Tag('CreateBucket')<
             })
 
             const lifecycleJsonPath = yield* Effect.sync(() =>
-              path.resolve(__dirname, 'lifecycle.json')
+              path.resolve(__dirname, '../json/lifecycle.json')
             )
 
             yield* Effect.sync(() =>
