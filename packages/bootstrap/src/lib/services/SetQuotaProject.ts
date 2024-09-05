@@ -1,12 +1,11 @@
 import { execSync } from 'child_process'
-import { Effect, Exit, Context, Layer } from 'effect'
+import { Effect, Exit, Context, Layer, Data } from 'effect'
 
-import { FailureCase } from '../shared'
 import { Project } from './CreateProject'
 
-export class SetQuotaProjectError {
-  readonly _tag = 'SetQuotaProjectError'
-}
+export class SetQuotaProjectError extends Data.TaggedError('SetQuotaProjectError')<{
+  readonly message: string
+}> {}
 
 export class SetQuotaProject extends Context.Tag('SetQuotaProject')<
   SetQuotaProject,
@@ -15,35 +14,31 @@ export class SetQuotaProject extends Context.Tag('SetQuotaProject')<
     readonly setPreviousQuotaProject: (project: Project) => Effect.Effect<void>
   }
 >() {
-  static Live = Layer.effect(
-    SetQuotaProject,
-    Effect.gen(function* () {
-      const failureCase = yield* FailureCase
-      return {
-        setQuotaProject: (projectId: string) =>
-          Effect.gen(function* () {
-            yield* Effect.log(`[SetQuotaProject] Setting quota project for project "${projectId}"`)
+  static Live = Layer.sync(SetQuotaProject, () => {
+    return {
+      setQuotaProject: (projectId: string) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`[SetQuotaProject] Setting quota project for project "${projectId}"`)
 
-            const currentProjectId = execSync('gcloud config get-value project').toString().trim()
+          const currentProjectId = yield* Effect.try({
+            try: () => execSync('gcloud config get-value project').toString().trim(),
+            catch: () => new SetQuotaProjectError({ message: 'Failed to get current project id' }),
+          })
 
-            yield* Effect.sync(() =>
-              execSync(`gcloud auth application-default set-quota-project ${projectId}`)
-            )
+          yield* Effect.try({
+            try: () => execSync(`gcloud auth application-default set-quota-project ${projectId}`),
+            catch: () => new SetQuotaProjectError({ message: 'Failed to set quota project' }),
+          })
 
-            if (failureCase === 'SetQuotaProject') {
-              return yield* Effect.fail(new SetQuotaProjectError())
-            } else {
-              return { id: currentProjectId }
-            }
-          }),
+          return { id: currentProjectId }
+        }),
 
-        setPreviousQuotaProject: (project) =>
-          Effect.sync(() =>
-            execSync(`gcloud auth application-default set-quota-project ${project.id}`)
-          ),
-      }
-    })
-  )
+      setPreviousQuotaProject: (project) =>
+        Effect.sync(() =>
+          execSync(`gcloud auth application-default set-quota-project ${project.id}`)
+        ),
+    }
+  })
 }
 
 export const setQuotaProject = (projectId: string) =>
