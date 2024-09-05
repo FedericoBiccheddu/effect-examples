@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "start": "nx run bootstrap:cli",
-    "lint": "nx run-many -t lint --fix"
+    "format": "nx format --all",
+    "lint": "nx run-many -t lint --fix",
+    "start": "nx run bootstrap:cli"
   },
   "dependencies": {
     "@effect/cli": "^0.42.2",
