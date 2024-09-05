@@ -8,7 +8,7 @@ export class EnableServicesError extends Data.TaggedError('EnableServicesError')
 export class EnableServices extends Context.Tag('EnableServices')<
   EnableServices,
   {
-    readonly enable: (
+    readonly enableServices: (
       projectId: string,
       services: string[]
     ) => Effect.Effect<void, EnableServicesError>
@@ -16,7 +16,7 @@ export class EnableServices extends Context.Tag('EnableServices')<
 >() {
   static Live = Layer.sync(EnableServices, () => {
     return {
-      enable: (projectId: string, services: string[]) =>
+      enableServices: (projectId: string, services: string[]) =>
         Effect.gen(function* () {
           yield* Effect.log(`[EnableServices] Enabling services for project "${projectId}"`)
 
@@ -34,8 +34,8 @@ export class EnableServices extends Context.Tag('EnableServices')<
   })
 }
 
-export const enable = (projectId: string, services: string[]) =>
+export const enableServices = (projectId: string, services: string[]) =>
   Effect.gen(function* () {
-    const { enable } = yield* EnableServices
-    yield* enable(projectId, services)
+    const { enableServices } = yield* EnableServices
+    yield* enableServices(projectId, services)
   })

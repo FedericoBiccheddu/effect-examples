@@ -1,7 +1,7 @@
 import { Prompt } from '@effect/cli'
 import { Effect } from 'effect'
 
-export type CliArgs = {
+export type BootstrapArgs = {
   orgId: string
   billingAccountId: string
   folderName: string
@@ -37,7 +37,7 @@ const bucketName = Prompt.text({
 })
 
 const confirm = Prompt.confirm({
-  message: 'Can you please confirm?',
+  message: 'Do you want to proceed?',
 })
 
 export const prompts = Prompt.all({

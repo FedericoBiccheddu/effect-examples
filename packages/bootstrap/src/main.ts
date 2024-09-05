@@ -6,12 +6,12 @@ import { Effect, Logger } from 'effect'
 import { prompts } from './lib/cli'
 import { bootstrap } from './lib/bootstrap'
 
-const command = Command.prompt('bootstrap', prompts, (o) =>
-  o.confirm ? bootstrap(o) : Effect.logError('Operation cancelled.')
+const command = Command.prompt('bootstrap', prompts, (args) =>
+  args.confirm ? bootstrap(args) : Effect.logError('[Bootstrap] Operation cancelled.')
 )
 
 const cli = Command.run(command, {
-  name: 'GCP Bootstrap',
+  name: 'Bootstrap',
   version: '0.0.1',
 })
 

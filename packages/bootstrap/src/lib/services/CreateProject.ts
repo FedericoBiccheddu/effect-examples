@@ -6,10 +6,6 @@ export class CreateProjectError extends Data.TaggedError('CreateProjectError')<{
   readonly message: string
 }> {}
 
-export class DeleteProjectError extends Data.TaggedError('DeleteProjectError')<{
-  readonly message: string
-}> {}
-
 export interface Project {
   readonly id: string
   readonly name?: string
@@ -47,7 +43,9 @@ export class CreateProject extends Context.Tag('CreateProject')<
         }),
 
       deleteProject: (project) =>
-        Effect.sync(() => execSync(`gcloud projects delete ${project.id}`)),
+        Effect.sync(() => execSync(`gcloud projects delete ${project.id}`)).pipe(
+          Effect.tap(() => Effect.log(`[CreateProject] Deleted project "${project.name}"`))
+        ),
     }
   })
 }
