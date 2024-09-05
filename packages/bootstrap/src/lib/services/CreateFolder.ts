@@ -1,11 +1,9 @@
 import { execSync } from 'child_process'
-import { Effect, Exit, Context, Layer } from 'effect'
+import { Effect, Exit, Context, Layer, Data, Redacted } from 'effect'
 
-import { FailureCase } from '../shared'
-
-export class CreateFolderError {
-  readonly _tag = 'CreateFolderError'
-}
+export class CreateFolderError extends Data.TaggedError('CreateFolderError')<{
+  readonly message: string
+}> {}
 
 export interface Folder {
   readonly id: string
@@ -16,42 +14,39 @@ export class CreateFolder extends Context.Tag('CreateFolder')<
   {
     readonly createFolder: (
       folderName: string,
-      orgId: string
+      orgId: Redacted.Redacted<string>
     ) => Effect.Effect<Folder, CreateFolderError>
     readonly deleteFolder: (folder: Folder) => Effect.Effect<void>
   }
 >() {
-  static Live = Layer.effect(
-    CreateFolder,
-    Effect.gen(function* () {
-      const failureCase = yield* FailureCase
+  static Live = Layer.sync(CreateFolder, () => {
+    return {
+      createFolder: (folderName, orgId) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`[CreateFolder] Creating "${folderName}" folder`)
 
-      return {
-        createFolder: (folderName: string, orgId: string) =>
-          Effect.gen(function* () {
-            yield* Effect.log(`[CreateFolder] Creating "${folderName}" folder`)
+          const oid = Redacted.value(orgId)
 
-            const output = yield* Effect.sync(() =>
+          const output = yield* Effect.try({
+            try: () =>
               execSync(
-                `gcloud resource-manager folders create --display-name ${folderName} --organization ${orgId} --format json`
-              )
-            )
+                `gcloud resource-manager folders create --display-name ${folderName} --organization ${oid} --format json`
+              ),
+            catch: () => new CreateFolderError({ message: 'Failed to create folder' }),
+          })
 
-            if (failureCase === 'CreateFolder') {
-              return yield* Effect.fail(new CreateFolderError())
-            } else {
-              return { id: JSON.parse(String(output)).name.split('/').pop() }
-            }
-          }),
+          yield* Effect.log(`[CreateFolder] Created "${folderName}" folder`)
 
-        deleteFolder: (folder) =>
-          Effect.sync(() => execSync(`gcloud resource-manager folders delete ${folder.id}`)),
-      }
-    })
-  )
+          return { id: JSON.parse(String(output)).name.split('/').pop() }
+        }),
+
+      deleteFolder: (folder) =>
+        Effect.sync(() => execSync(`gcloud resource-manager folders delete ${folder.id}`)),
+    }
+  })
 }
 
-export const createFolder = (folderName: string, orgId: string) =>
+export const createFolder = (folderName: string, orgId: Redacted.Redacted<string>) =>
   Effect.gen(function* () {
     const { createFolder, deleteFolder } = yield* CreateFolder
     return yield* Effect.acquireRelease(createFolder(folderName, orgId), (folder, exit) =>

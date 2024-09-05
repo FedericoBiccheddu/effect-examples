@@ -1,47 +1,49 @@
 import { execSync } from 'child_process'
-import { Context, Effect, Exit, Layer } from 'effect'
+import { Context, Data, Effect, Exit, Layer } from 'effect'
 
-import { FailureCase } from '../shared'
 import { Project } from './CreateProject'
 
-export class SetCurrentProjectError {
-  readonly _tag = 'SetCurrentProjectError'
-}
+export class GetCurrentProjectError extends Data.TaggedError('GetCurrentProjectError')<{
+  message: string
+}> {}
+
+export class SetCurrentProjectError extends Data.TaggedError('SetCurrentProjectError')<{
+  message: string
+}> {}
 
 export class SetCurrentProject extends Context.Tag('SetCurrentProject')<
   SetCurrentProject,
   {
     readonly setCurrentProject: (
       projectId: string
-    ) => Effect.Effect<Project, SetCurrentProjectError>
+    ) => Effect.Effect<Project, GetCurrentProjectError | SetCurrentProjectError>
     readonly setPreviousProject: (project: Project) => Effect.Effect<void>
   }
 >() {
-  static Live = Layer.effect(
-    SetCurrentProject,
-    Effect.gen(function* () {
-      const failureCase = yield* FailureCase
-      return {
-        setCurrentProject: (projectId: string) =>
-          Effect.gen(function* () {
-            yield* Effect.log(`[SetCurrentProject] Setting current project to "${projectId}"`)
+  static Live = Layer.sync(SetCurrentProject, () => {
+    return {
+      setCurrentProject: (projectId: string) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`[SetCurrentProject] Setting current project to "${projectId}"`)
 
-            const currentProjectId = execSync('gcloud config get-value project').toString().trim()
+          const currentProjectId = yield* Effect.try({
+            try: () => execSync('gcloud config get-value project').toString().trim(),
+            catch: () =>
+              new GetCurrentProjectError({ message: 'Failed to get current project id' }),
+          })
 
-            yield* Effect.sync(() => execSync(`gcloud config set project ${projectId}`))
+          yield* Effect.try({
+            try: () => execSync(`gcloud config set project ${projectId}`),
+            catch: () => new SetCurrentProjectError({ message: 'Failed to set quota project' }),
+          })
 
-            if (failureCase === 'SetCurrentProject') {
-              return yield* Effect.fail(new SetCurrentProjectError())
-            } else {
-              return { id: currentProjectId }
-            }
-          }),
+          return { id: currentProjectId }
+        }),
 
-        setPreviousProject: (project) =>
-          Effect.sync(() => execSync(`gcloud config set project ${project.id}`)),
-      }
-    })
-  )
+      setPreviousProject: (project) =>
+        Effect.sync(() => execSync(`gcloud config set project ${project.id}`)),
+    }
+  })
 }
 
 export const setCurrentProject = (projectId: string) =>

@@ -1,10 +1,9 @@
-import { Context, Effect, Layer } from 'effect'
-import { FailureCase } from '../shared'
 import { execSync } from 'child_process'
+import { Context, Data, Effect, Layer } from 'effect'
 
-export class EnableServicesError {
-  readonly _tag = 'EnableServicesError'
-}
+export class EnableServicesError extends Data.TaggedError('EnableServicesError')<{
+  readonly message: string
+}> {}
 
 export class EnableServices extends Context.Tag('EnableServices')<
   EnableServices,
@@ -15,31 +14,24 @@ export class EnableServices extends Context.Tag('EnableServices')<
     ) => Effect.Effect<void, EnableServicesError>
   }
 >() {
-  static Live = Layer.effect(
-    EnableServices,
-    Effect.gen(function* () {
-      const failureCase = yield* FailureCase
+  static Live = Layer.sync(EnableServices, () => {
+    return {
+      enable: (projectId: string, services: string[]) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`[EnableServices] Enabling services for project "${projectId}"`)
 
-      return {
-        enable: (projectId: string, services: string[]) =>
-          Effect.gen(function* () {
-            yield* Effect.log(`[EnableServices] Enabling services for project "${projectId}"`)
-
-            yield* Effect.sync(() =>
+          yield* Effect.try({
+            try: () =>
               execSync(
                 `gcloud services enable ${services.join(' ')} --project ${projectId} --format json`
-              )
-            )
+              ),
+            catch: () => new EnableServicesError({ message: 'Failed to enable services' }),
+          })
 
-            if (failureCase === 'EnableServices') {
-              return yield* Effect.fail(new EnableServicesError())
-            } else {
-              return Effect.void
-            }
-          }),
-      }
-    })
-  )
+          yield* Effect.log(`[EnableServices] Enabled services for project "${projectId}"`)
+        }),
+    }
+  })
 }
 
 export const enable = (projectId: string, services: string[]) =>

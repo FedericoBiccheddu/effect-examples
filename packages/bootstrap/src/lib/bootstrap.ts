@@ -1,14 +1,13 @@
-import { Effect, Layer, Logger } from 'effect'
+import { Effect, Layer, Logger, Redacted } from 'effect'
 
 import { CliArgs } from './cli'
 import { createBucket, CreateBucket } from './services/CreateBucket'
-import { CreateFolder, createFolder } from './services/CreateFolder'
-import { CreateProject, createProject } from './services/CreateProject'
+import { createFolder, CreateFolder } from './services/CreateFolder'
+import { createProject, CreateProject } from './services/CreateProject'
 import { enable, EnableServices } from './services/EnableServices'
 import { linkBillingAccount, LinkBillingAccount } from './services/LinkBillingAccount'
 import { setCurrentProject, SetCurrentProject } from './services/SetCurrentProject'
 import { setQuotaProject, SetQuotaProject } from './services/SetQuotaProject'
-import { FailureCase } from './shared'
 
 const layers = Layer.mergeAll(
   Logger.pretty,
@@ -24,7 +23,7 @@ const layers = Layer.mergeAll(
 export const make = (o: CliArgs) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const folder = yield* createFolder(o.folderName, o.orgId)
+      const folder = yield* createFolder(o.folderName, Redacted.make(o.orgId))
       const project = yield* createProject(o.projectName, folder.id)
 
       yield* setCurrentProject(project.id)
@@ -36,7 +35,7 @@ export const make = (o: CliArgs) =>
       ])
 
       yield* setQuotaProject(project.id)
-      yield* linkBillingAccount(project.id, o.billingAccountId)
+      yield* linkBillingAccount(project.id, Redacted.make(o.billingAccountId))
 
       yield* enable(project.id, ['compute.googleapis.com', 'storage-component.googleapis.com'])
 
@@ -44,5 +43,4 @@ export const make = (o: CliArgs) =>
     })
   )
 
-export const bootstrap = (args: CliArgs) =>
-  make(args).pipe(Effect.provide(layers), Effect.provideService(FailureCase, undefined))
+export const bootstrap = (o: CliArgs) => make(o).pipe(Effect.provide(layers))

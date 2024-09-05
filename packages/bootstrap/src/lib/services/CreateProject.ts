@@ -1,12 +1,14 @@
 import * as crypto from 'crypto'
 import { execSync } from 'child_process'
-import { Effect, Exit, Context, Layer } from 'effect'
+import { Effect, Exit, Context, Layer, Data } from 'effect'
 
-import { FailureCase } from '../shared'
+export class CreateProjectError extends Data.TaggedError('CreateProjectError')<{
+  readonly message: string
+}> {}
 
-export class CreateProjectError {
-  readonly _tag = 'CreateProjectError'
-}
+export class DeleteProjectError extends Data.TaggedError('DeleteProjectError')<{
+  readonly message: string
+}> {}
 
 export interface Project {
   readonly id: string
@@ -23,36 +25,31 @@ export class CreateProject extends Context.Tag('CreateProject')<
     readonly deleteProject: (project: Project) => Effect.Effect<void>
   }
 >() {
-  static Live = Layer.effect(
-    CreateProject,
-    Effect.gen(function* () {
-      const failureCase = yield* FailureCase
+  static Live = Layer.sync(CreateProject, () => {
+    return {
+      createProject: (projectName, folderId) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`[CreateProject] Creating "${projectName}" project`)
 
-      return {
-        createProject: (projectName: string, folderId: string) =>
-          Effect.gen(function* () {
-            yield* Effect.log(`[CreateProject] Creating "${projectName}" project`)
+          const projectId = `${projectName}-${crypto.randomBytes(3).toString('hex')}`
 
-            const projectId = `${projectName}-${crypto.randomBytes(3).toString('hex')}`
-
-            yield* Effect.sync(() =>
+          yield* Effect.try({
+            try: () =>
               execSync(
                 `gcloud projects create ${projectId} --name ${projectName} --folder ${folderId} --format json`
-              )
-            )
+              ),
+            catch: () => new CreateProjectError({ message: 'Failed to create project' }),
+          })
 
-            if (failureCase === 'CreateProject') {
-              return yield* Effect.fail(new CreateProjectError())
-            } else {
-              return { id: projectId, name: projectName }
-            }
-          }),
+          yield* Effect.log(`[CreateProject] Created "${projectName}" project`)
 
-        deleteProject: (project) =>
-          Effect.sync(() => execSync(`gcloud projects delete ${project.id}`)),
-      }
-    })
-  )
+          return { id: projectId, name: projectName }
+        }),
+
+      deleteProject: (project) =>
+        Effect.sync(() => execSync(`gcloud projects delete ${project.id}`)),
+    }
+  })
 }
 
 export const createProject = (projectName: string, folderId: string) =>

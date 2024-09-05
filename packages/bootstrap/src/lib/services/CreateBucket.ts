@@ -1,11 +1,10 @@
 import * as path from 'path'
 import { execSync } from 'child_process'
-import { Effect, Exit, Context, Layer } from 'effect'
-import { FailureCase } from '../shared'
+import { Effect, Exit, Context, Layer, Data } from 'effect'
 
-export class CreateBucketError {
-  readonly _tag = 'CreateBucketError'
-}
+export class CreateBucketError extends Data.TaggedError('CreateBucketError')<{
+  readonly message: string
+}> {}
 
 export interface Bucket {
   readonly uri: string
@@ -21,54 +20,47 @@ export class CreateBucket extends Context.Tag('CreateBucket')<
     readonly deleteBucket: (bucket: Bucket) => Effect.Effect<void>
   }
 >() {
-  static Live = Layer.effect(
-    CreateBucket,
-    Effect.gen(function* () {
-      const failureCase = yield* FailureCase
+  static Live = Layer.sync(CreateBucket, () => {
+    return {
+      createBucket: (bucketName: string, projectId: string) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`[CreateBucket] Creating bucket "${bucketName}"`)
 
-      return {
-        createBucket: (bucketName: string, projectId: string) =>
-          Effect.gen(function* () {
-            yield* Effect.log('[CreateBucket] creating bucket')
+          const bucketUri = `gs://${bucketName}`
 
-            const bucketUri = `gs://${bucketName}`
+          yield* Effect.sync(() =>
+            execSync(`gcloud storage buckets create ${bucketUri} --project ${projectId}`)
+          )
 
-            yield* Effect.sync(() =>
-              execSync(`gcloud storage buckets create ${bucketUri} --project ${projectId}`)
-            )
+          yield* Effect.sync(() => {
+            execSync(`gsutil versioning set on ${bucketUri}`)
+          })
 
-            yield* Effect.sync(() => {
-              execSync(`gsutil versioning set on ${bucketUri}`)
-            })
+          yield* Effect.sync(() => {
+            execSync(`gsutil uniformbucketlevelaccess set on ${bucketUri}`)
+          })
 
-            yield* Effect.sync(() => {
-              execSync(`gsutil uniformbucketlevelaccess set on ${bucketUri}`)
-            })
+          yield* Effect.sync(() => {
+            execSync(`gsutil bucketpolicyonly set on ${bucketUri}`)
+          })
 
-            yield* Effect.sync(() => {
-              execSync(`gsutil bucketpolicyonly set on ${bucketUri}`)
-            })
+          const lifecycleJsonPath = yield* Effect.sync(() =>
+            path.resolve(__dirname, '../json/lifecycle.json')
+          )
 
-            const lifecycleJsonPath = yield* Effect.sync(() =>
-              path.resolve(__dirname, '../json/lifecycle.json')
-            )
+          yield* Effect.sync(() =>
+            execSync(`gsutil lifecycle set ${lifecycleJsonPath} ${bucketUri}`)
+          )
 
-            yield* Effect.sync(() =>
-              execSync(`gsutil lifecycle set ${lifecycleJsonPath} ${bucketUri}`)
-            )
+          yield* Effect.log(`[CreateBucket] Created bucket "${bucketName}"`)
 
-            if (failureCase === 'CreateBucket') {
-              return yield* Effect.fail(new CreateBucketError())
-            } else {
-              return { uri: bucketUri }
-            }
-          }),
+          return { uri: bucketUri }
+        }),
 
-        deleteBucket: (bucket) =>
-          Effect.sync(() => execSync(`gcloud storage buckets delete ${bucket.uri}`)),
-      }
-    })
-  )
+      deleteBucket: (bucket) =>
+        Effect.sync(() => execSync(`gcloud storage buckets delete ${bucket.uri}`)),
+    }
+  })
 }
 
 export const createBucket = (bucketName: string, projectId: string) =>
