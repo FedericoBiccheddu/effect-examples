@@ -1,0 +1,23 @@
+{
+  "name": "bootstrap",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/bootstrap/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/bootstrap",
+        "main": "packages/bootstrap/src/main.ts",
+        "tsConfig": "packages/bootstrap/tsconfig.lib.json",
+        "assets": ["packages/bootstrap/*.md"]
+      }
+    },
+    "cli": {
+      "dependsOn": ["build"],
+      "command": "node dist/{projectRoot}/src/main.js"
+    }
+  }
+}
