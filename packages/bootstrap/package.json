@@ -2,10 +2,11 @@
   "name": "@packages/bootstrap",
   "version": "0.0.1",
   "dependencies": {
-    "tslib": "^2.3.0",
-    "effect": "^3.7.2",
     "@effect/cli": "^0.42.2",
-    "@effect/platform-node": "^0.58.2"
+    "@effect/platform-node": "^0.58.2",
+    "@effect/schema": "^0.72.3",
+    "effect": "^3.7.2",
+    "tslib": "^2.3.0"
   },
   "type": "commonjs",
   "main": "./src/index.js",
