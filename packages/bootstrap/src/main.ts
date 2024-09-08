@@ -1,6 +1,6 @@
-import { Command } from '@effect/cli'
 import * as NodeContext from '@effect/platform-node/NodeContext'
 import * as Runtime from '@effect/platform-node/NodeRuntime'
+import { Command } from '@effect/cli'
 import { Effect } from 'effect'
 
 import { prompts } from './lib/cli'
