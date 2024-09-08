@@ -1,11 +1,10 @@
-import { Effect, Layer, Logger, Redacted } from 'effect'
+import { Effect, Layer, Redacted } from 'effect'
 
 import * as s from './services'
 import { BootstrapArgs } from './cli'
 import { GcpService } from './shared'
 
 const layers = Layer.mergeAll(
-  Logger.pretty,
   s.CreateFolder.Live,
   s.CreateProject.Live,
   s.EnableServices.Live,
